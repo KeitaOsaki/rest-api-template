@@ -1,0 +1,53 @@
+version: '3.8'
+services:
+  api:
+    build:
+      context: ./
+      target: dev
+    command: reflex -r '\.go$$' -s -- sh -c 'go run cmd/main.go'
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./:/app
+    working_dir: /app
+    ports:
+      - 9000:9000
+    depends_on:
+      - mysql
+  mysql:
+#    platform: linux/x86_64 # M1 macの場合必要
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 'admin'
+      MYSQL_DATABASE: 'funcy'
+      MYSQL_USER: 'funcy'
+      MYSQL_PASSWORD: 'userpass'
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./db/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - db-data:/var/lib/mysql
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    depends_on:
+      - api
+    environment:
+      - SWAGGER_URL=./swagger.yaml
+      - SWAGGER_JSON=/swagger/swagger.yaml
+    ports:
+      - 8002:8080
+    volumes:
+      - ./swagger/:/swagger
+  swagger-api:
+    image: stoplight/prism:3
+    container_name: swagger-api
+    ports:
+      - 8003:4010
+    command: mock -h 0.0.0.0 /swagger.yaml
+    volumes:
+      - ./swagger/swagger.yaml:/swagger.yaml
+volumes:
+  db-data:
+    driver: local
